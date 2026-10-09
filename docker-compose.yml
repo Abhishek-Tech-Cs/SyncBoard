@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: syncboard_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - syncboard_network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: syncboard_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - syncboard_network
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: syncboard_server
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - CLIENT_URL=http://localhost:5173
+      - MONGODB_URI=mongodb://mongodb:27017/syncboard
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=syncboard_super_secret_jwt_key_2027_production_grade
+      - JWT_EXPIRES_IN=7d
+      - COOKIE_SECRET=syncboard_cookie_secret_key_secure
+      - STORAGE_PROVIDER=local
+      - UPLOAD_DIR=uploads
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - server_uploads:/app/uploads
+    networks:
+      - syncboard_network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: syncboard_client
+    restart: always
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      - server
+    networks:
+      - syncboard_network
+
+volumes:
+  mongo_data:
+  redis_data:
+  server_uploads:
+
+networks:
+  syncboard_network:
+    driver: bridge
+
